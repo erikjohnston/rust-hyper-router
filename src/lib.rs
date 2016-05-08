@@ -1,8 +1,6 @@
 extern crate hyper;
 extern crate route_recognizer;
 
-use std::fmt::Debug;
-
 use hyper::header::Headers;
 use hyper::method::Method;
 use hyper::server::Handler as HyperHandler;
@@ -216,7 +214,7 @@ impl<H> HyperRouter<H> {
 }
 
 impl<H> HyperHandler for HyperRouter<H>
-    where H: AsRef<RouteHandler> + Send + Sync + Debug
+    where H: AsRef<RouteHandler> + Send + Sync
 {
     fn handle<'a, 'k>(&'a self, req: Request<'a, 'k>, mut res: Response<'a>) {
         if let Some(matches) = self.get_match(&req.method, &req.uri) {
