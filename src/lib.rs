@@ -190,7 +190,11 @@ impl<H> HyperRouter<H> {
         use hyper::uri::RequestUri::*;
 
         let m = match *uri {
-            AbsolutePath(ref path) => self.path_router.recognize(&path).ok(),
+            AbsolutePath(ref path) => {
+                self.path_router
+                    .recognize(&path.splitn(2, |c| c == '?' || c == '#').collect::<Vec<&str>>()[0])
+                    .ok()
+            }
             AbsoluteUri(ref url) => self.url_router.recognize(url.as_str()).ok(),
             Authority(ref authority) => self.authority_router.recognize(&authority).ok(),
             Star => {
@@ -284,6 +288,27 @@ mod tests {
         let res = router.get_match(&Method::Post,
                                    &RequestUri::AbsolutePath(String::from("/test/")));
         assert!(res.is_none());
+    }
+
+    #[test]
+    fn query_string_test() {
+        let mut entry = RouteEntry::with_handler(0u8);
+        entry.add_method(MethodRoutes::Get);
+        entry.add_method(MethodRoutes::Put);
+        let mut router = HyperRouter::new();
+        router.add_path_entry("/test/", entry);
+
+        let res = router.get_match(&Method::Get,
+                                   &RequestUri::AbsolutePath(String::from("/test/")));
+        assert_eq!(res.unwrap().handler.handler, 0u8);
+
+        let res = router.get_match(&Method::Put,
+                                   &RequestUri::AbsolutePath(String::from("/test/?test=foo")));
+        assert_eq!(res.unwrap().handler.handler, 0u8);
+
+        let res = router.get_match(&Method::Put,
+                                   &RequestUri::AbsolutePath(String::from("/test/#test")));
+        assert_eq!(res.unwrap().handler.handler, 0u8);
     }
 
     #[test]
