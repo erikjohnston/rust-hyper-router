@@ -8,7 +8,9 @@ use hyper::server::{Request, Response};
 use hyper::status::StatusCode;
 use hyper::uri::RequestUri;
 
-use route_recognizer::{Match, Params, Router};
+use route_recognizer::Router;
+
+pub use route_recognizer::{Match, Params};
 
 
 #[macro_export]
