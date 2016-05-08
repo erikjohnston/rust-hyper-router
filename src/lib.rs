@@ -216,12 +216,12 @@ impl<H> HyperRouter<H> {
 }
 
 impl<H> HyperHandler for HyperRouter<H>
-    where H: AsRef<RouteHandler> + Send + Sync
+    where H: RouteHandler
 {
     fn handle<'a, 'k>(&'a self, req: Request<'a, 'k>, mut res: Response<'a>) {
         if let Some(matches) = self.get_match(&req.method, &req.uri) {
             let Match { handler, params } = matches;
-            handler.handler.as_ref().handle(params, req, res);
+            handler.handler.handle(params, req, res);
         } else {
             *res.status_mut() = StatusCode::NotFound;
         }
@@ -230,7 +230,7 @@ impl<H> HyperHandler for HyperRouter<H>
     fn check_continue(&self, tuple: (&Method, &RequestUri, &Headers)) -> StatusCode {
         if let Some(matches) = self.get_match(tuple.0, tuple.1) {
             let Match { handler, params } = matches;
-            handler.handler.as_ref().check_continue(params, tuple)
+            handler.handler.check_continue(params, tuple)
         } else {
             StatusCode::Continue
         }
