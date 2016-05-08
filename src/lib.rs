@@ -13,6 +13,25 @@ use hyper::uri::RequestUri;
 use route_recognizer::{Match, Params, Router};
 
 
+#[macro_export]
+macro_rules! create_router {
+    ( $( $path:expr => $( $method:ident ),+ => $handler:expr ),+, ) => {{
+        let mut router = HyperRouter::new();
+
+        $(
+            let mut entry = RouteEntry::with_handler($handler);
+            $(
+                entry.add_method(MethodRoutes::$method);
+            )+
+
+            router.add_path_entry($path, entry);
+        )+
+
+        router
+    }};
+}
+
+
 fn method_to_bit(method: &Method) -> u8 {
     use hyper::method::Method::*;
     let exp = match *method {
@@ -27,6 +46,34 @@ fn method_to_bit(method: &Method) -> u8 {
     };
 
     1u8 << exp
+}
+
+fn method_route_to_bit(method: MethodRoutes) -> u8 {
+    use MethodRoutes::*;
+    let exp = match method {
+        Options => 0,
+        Get => 1,
+        Post => 2,
+        Put => 3,
+        Delete => 4,
+        Connect => 5,
+        Patch => 6,
+        Other => 7,
+    };
+
+    1u8 << exp
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MethodRoutes {
+    Options,
+    Get,
+    Post,
+    Put,
+    Delete,
+    Connect,
+    Patch,
+    Other,
 }
 
 
@@ -44,8 +91,18 @@ impl<H> RouteEntry<H> {
         }
     }
 
-    pub fn add_method(&mut self, method: &Method) {
-        self.accepted_methods |= method_to_bit(method);
+    pub fn add_method(&mut self, method: MethodRoutes) {
+        self.accepted_methods |= method_route_to_bit(method);
+    }
+
+    pub fn add_methods(&mut self, methods: &[MethodRoutes]) {
+        for method in methods {
+            self.accepted_methods |= method_route_to_bit(*method);
+        }
+    }
+
+    pub fn add_all_methods(&mut self) {
+        self.accepted_methods = !0u8;
     }
 
     pub fn accepts_method(&self, method: &Method) -> bool {
@@ -185,7 +242,7 @@ impl<H> HyperHandler for HyperRouter<H>
 #[test]
 fn simple_test() {
     let mut entry = RouteEntry::with_handler(0u8);
-    entry.add_method(&Method::Get);
+    entry.add_method(MethodRoutes::Get);
     let mut router = HyperRouter::new();
     router.add_path_entry("/test/", entry);
 
@@ -206,8 +263,8 @@ fn simple_test() {
 #[test]
 fn multi_method_test() {
     let mut entry = RouteEntry::with_handler(0u8);
-    entry.add_method(&Method::Get);
-    entry.add_method(&Method::Put);
+    entry.add_method(MethodRoutes::Get);
+    entry.add_method(MethodRoutes::Put);
     let mut router = HyperRouter::new();
     router.add_path_entry("/test/", entry);
 
@@ -222,4 +279,30 @@ fn multi_method_test() {
     let res = router.get_match(&Method::Post,
                                &RequestUri::AbsolutePath(String::from("/test/")));
     assert!(res.is_none());
+}
+
+#[cfg(test)]
+#[test]
+fn create_router_test() {
+    let router = create_router! {
+        "/test/" => Get, Put => 0u8,
+        "/test2/:id" => Delete => 1u8,
+    };
+
+    let res = router.get_match(&Method::Get,
+                               &RequestUri::AbsolutePath(String::from("/test/")));
+    assert_eq!(res.unwrap().handler.handler, 0u8);
+
+    let res = router.get_match(&Method::Put,
+                               &RequestUri::AbsolutePath(String::from("/test/")));
+    assert_eq!(res.unwrap().handler.handler, 0u8);
+
+    let res = router.get_match(&Method::Delete,
+                               &RequestUri::AbsolutePath(String::from("/test/")));
+    assert!(res.is_none());
+
+    let res = router.get_match(&Method::Delete,
+                               &RequestUri::AbsolutePath(String::from("/test2/test")));
+    assert_eq!(res.as_ref().unwrap().handler.handler, 1u8);
+    assert_eq!(res.unwrap().params["id"], "test");
 }
