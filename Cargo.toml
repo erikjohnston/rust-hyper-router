@@ -4,5 +4,5 @@ name = "hyper-router"
 version = "0.1.0"
 
 [dependencies]
-hyper = "0.9.3"
+hyper = "0.10.0"
 route-recognizer = "0.1.11"
