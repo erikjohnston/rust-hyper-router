@@ -31,6 +31,27 @@ macro_rules! create_router {
     }};
 }
 
+#[macro_export]
+macro_rules! create_boxed_router {
+    ( $( $path:expr => $( $method:ident ),+ => $handler:expr ),+, ) => {{
+        let mut router = $crate::HyperRouter::new();
+
+        $(
+            let mut entry = $crate::RouteEntry::with_handler(
+                Box::new($handler) as Box<RouteHandler>
+            );
+            $(
+                entry.add_method($crate::MethodRoutes::$method);
+            )+
+
+            router.add_path_entry($path, entry);
+        )+
+
+        router
+    }};
+}
+
+
 
 fn method_to_bit(method: &Method) -> u8 {
     use hyper::method::Method::*;
